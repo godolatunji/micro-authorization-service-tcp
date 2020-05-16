@@ -5,7 +5,14 @@ import * as shortid from 'shortid';
 import { EntityManager, In, Repository } from 'typeorm';
 import { Permission } from '../permission/permission.model';
 import { Role } from '../role/role.model';
+import {
+  generateToken,
+  getKeyPair,
+  getRandomString,
+  ISecret,
+} from '../shared/auth';
 import { TYPES } from '../types';
+import { RoleKeys } from './role-key.model';
 import { RoleDto } from './role.dto';
 import { UserRole } from './user-role.model';
 
@@ -14,6 +21,7 @@ export class RoleService {
   private readonly permissionRepositoy: Repository<Permission>;
   private readonly roleRepositoy: Repository<Role>;
   private readonly userRoleRepositoy: Repository<UserRole>;
+  private readonly roleKeysRepositoy: Repository<RoleKeys>;
 
   constructor(
     @InjectEntityManager()
@@ -24,6 +32,7 @@ export class RoleService {
     this.permissionRepositoy = entityManager.getRepository(Permission);
     this.roleRepositoy = entityManager.getRepository(Role);
     this.userRoleRepositoy = entityManager.getRepository(UserRole);
+    this.roleKeysRepositoy = entityManager.getRepository(RoleKeys);
   }
 
   async create(data: RoleDto): Promise<Role> {
@@ -119,7 +128,7 @@ export class RoleService {
     return user;
   }
 
-  async getUserAuthority(userId: string): Promise<Role[]> {
+  async getUserAuthority(userId: string): Promise<any> {
     const userRoles = await this.userRoleRepositoy.find({ where: { userId } });
     if (userRoles.length === 0) return [];
     const rolesIds = userRoles.map(doc => doc.roleId);
@@ -131,7 +140,16 @@ export class RoleService {
       relations: ['permissions'],
     });
 
-    return roles;
+    const permSet = new Set();
+    const rolesClean = roles.map(doc => {
+      doc.permissions.map(d => permSet.add(d.name));
+      return doc.name;
+    });
+
+    return {
+      roles: rolesClean,
+      permissions: [...permSet],
+    };
   }
 
   async addPermissionToAdmin(permissionId: number): Promise<void> {
@@ -144,19 +162,31 @@ export class RoleService {
       const user = await this.userSvc
         .send<any>({ cmd: 'loginUser' }, data)
         .toPromise();
-      const roles = await this.getUserAuthority(user.id);
-      const userRoles = roles.map(doc => {
-        return {
-          id: doc.id,
-          name: doc.name,
-          permissions: doc.permissions.map(d => d.name),
-        };
-      });
+
       delete user.password;
-      user.roles = userRoles;
+      const auth = await this.getUserAuthority(user.id);
+      user.roles = auth.roles;
+      user.permissions = auth.permissions;
+      const { secret } = await this.getSecret();
+      user.token = generateToken(user, secret);
       return user;
     } catch (err) {
       throw new RpcException('Error authenticating user: ' + err.message);
     }
+  }
+
+  async generateSecret(): Promise<void> {
+    const secret = getRandomString();
+    const roleKeys = await this.roleKeysRepositoy.find();
+    if (roleKeys.length === 0) {
+      const roleKey = new RoleKeys();
+      roleKey.secret = secret;
+      await this.roleKeysRepositoy.save(roleKey);
+    }
+  }
+
+  async getSecret(): Promise<ISecret> {
+    const roleKeys = await this.roleKeysRepositoy.find();
+    return { secret: roleKeys[0].secret };
   }
 }

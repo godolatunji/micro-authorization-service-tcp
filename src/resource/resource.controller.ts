@@ -20,4 +20,9 @@ export class ResourceController {
   create(createResourceDto: CreateResourceDto[]): Promise<boolean> {
     return this.resourceService.create(createResourceDto);
   }
+
+  @MessagePattern({ cmd: 'getResourcePermissions' })
+  getResourcePermissions(): Promise<boolean> {
+    return this.resourceService.getResourcePermissions();
+  }
 }

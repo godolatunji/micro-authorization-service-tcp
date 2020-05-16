@@ -1,12 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectEntityManager } from '@nestjs/typeorm';
-import {
-  AdvancedConsoleLogger,
-  EntityManager,
-  Repository,
-  Transaction,
-  TransactionRepository,
-} from 'typeorm';
+import { EntityManager, Repository } from 'typeorm';
 import { CreateResourceDto } from './create-resource.dto';
 import { Resource } from './resource.model';
 
@@ -37,5 +31,12 @@ export class ResourceService {
 
   async list(): Promise<Resource[]> {
     return await this.resourceRepositoy.find();
+  }
+
+  async getResourcePermissions(): Promise<any> {
+    const result = await this.resourceRepositoy.query(
+      'SELECT r.*, p.name as permission FROM resources r LEFT JOIN permissions p ON r.id = p."resourceId"',
+    );
+    return result;
   }
 }

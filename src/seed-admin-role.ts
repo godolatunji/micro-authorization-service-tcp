@@ -10,6 +10,8 @@ export async function adminRoleSeed(application) {
       role = await roleService.create({ name: 'admin' });
     }
 
+    await roleService.generateSecret();
+
     const user = await roleService.getUserByEmail('developers@cars45.com');
     if (!user) {
       throw new Error('Admin user does not exist on user microservice');

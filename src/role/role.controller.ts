@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { Controller, Inject } from '@nestjs/common';
 import { MessagePattern } from '@nestjs/microservices';
+import { IKeyPair, ISecret } from '../shared/auth';
 import { RoleDto } from './role.dto';
 import { Role } from './role.model';
 import { RoleService } from './role.service';
@@ -45,5 +46,15 @@ export class RoleController {
   @MessagePattern({ cmd: 'addPermissionToRole' })
   addPermissionToRole({ headers, data }): Promise<Role> {
     return this.roleService.addPermissionToRole(data.roleId, data.permissionId);
+  }
+
+  @MessagePattern({ cmd: 'getSecret' })
+  getKeyPair({ headers, data }): Promise<ISecret> {
+    return this.roleService.getSecret();
+  }
+
+  @MessagePattern({ cmd: 'getUserAuthority' })
+  getUserAuthority({ headers, data }): Promise<any> {
+    return this.roleService.getUserAuthority(data.userId);
   }
 }
